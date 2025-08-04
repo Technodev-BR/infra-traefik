@@ -21,6 +21,17 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: List SSH identities
+        run: ssh-add -l || echo "No SSH identities loaded"
+
+      - name: Debug environment variables
+        run: |
+          echo "STACK_NAME=$STACK_NAME"
+          echo "TRAEFIK_STACK_FILE=$TRAEFIK_STACK_FILE"
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID"
+          # Não imprimir secrets para evitar vazamento
+
       - name: Get current Traefik image tag
         id: previous-image
         run: |
@@ -29,14 +40,14 @@ jobs:
           echo "previous_image=$IMAGE" >> $GITHUB_OUTPUT
         continue-on-error: true
 
-      - name: Copy traefik-stack.yml to server
+      - name: Copy traefik-stack.yml to server (verbose)
         run: |
-          scp -o StrictHostKeyChecking=no ${{ env.TRAEFIK_STACK_FILE }} \
-          ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/tmp/${{ env.TRAEFIK_STACK_FILE }}
+          scp -vvv -o StrictHostKeyChecking=no ${{ env.TRAEFIK_STACK_FILE }} \
+            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/tmp/${{ env.TRAEFIK_STACK_FILE }}
 
-      - name: Update or deploy Traefik stack
+      - name: Update or deploy Traefik stack (verbose)
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
+          ssh -vvv -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
             docker stack deploy --with-registry-auth -c /tmp/${{ env.TRAEFIK_STACK_FILE }} $STACK_NAME
           "
 

@@ -1,0 +1,80 @@
+name: Deploy Traefik stack
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      STACK_NAME: traefik  # Nome do stack Docker Swarm
+      TRAEFIK_STACK_FILE: traefik-stack.yml
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Get current Traefik image tag
+        id: previous-image
+        run: |
+          IMAGE=$(ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "docker service inspect ${STACK_NAME}_traefik --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'") || true
+          echo "previous_image=$IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Copy traefik-stack.yml to server
+        run: |
+          scp -o StrictHostKeyChecking=no ${{ env.TRAEFIK_STACK_FILE }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/tmp/${{ env.TRAEFIK_STACK_FILE }}
+
+      - name: Deploy Traefik stack on server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << EOF
+            docker stack deploy --with-registry-auth -c /tmp/${{ env.TRAEFIK_STACK_FILE }} $STACK_NAME
+          EOF
+
+      - name: Wait for Traefik service to stabilize
+        run: sleep 30
+
+      - name: Health check Traefik dashboard
+        id: healthcheck
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://${{ secrets.TRAEFIK_DOMAIN }}/dashboard/ || echo "000")
+          echo "Status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "Health check failed!"
+            exit 1
+          fi
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Rolling back to previous image: ${{ steps.previous-image.outputs.previous_image }}"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash -s << EOF
+            PREV_IMAGE="${{ steps.previous-image.outputs.previous_image }}"
+            sed -i "s|image: .*|image: \$PREV_IMAGE|" /tmp/${{ env.TRAEFIK_STACK_FILE }}
+            docker stack deploy --with-registry-auth -c /tmp/${{ env.TRAEFIK_STACK_FILE }} $STACK_NAME
+EOF
+
+      - name: Send email notification on rollback
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "[Rollback] Deploy Traefik falhou e foi revertido 🚨"
+          to: ${{ secrets.EMAIL_TO_NOTIFY }}
+          from: ${{ secrets.SMTP_USERNAME }}
+          body: |
+            O deploy do Traefik falhou na verificação de saúde.
+            O serviço foi revertido.
+
+            Repositório: ${{ github.repository }}
+            Commit: ${{ github.sha }}
+            Autor: ${{ github.actor }}

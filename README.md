@@ -42,38 +42,19 @@ Para parar a execução do swarm execulte:
 docker swarm leave --force
 ```
 
-Ambiente dev:
-
-```bash
-chmod +x scripts/setup-dev.sh
-./scripts/setup-dev.sh
-```
-
 Ambiente prod:
 
 ```bash
-chmod +x scripts/setup-prod.sh
-./scripts/setup-prod.sh
+chmod +x scripts/setup.sh
+./scripts/setup.sh
 ```
 
-Caso ocorra um problema sobre a rede use o setup-down para limpar:
+Caso ocorra um problema sobre a rede use para limpar:
 
 
 ```bash
-chmod +x scripts/setup-down.sh
-./scripts/setup-down.sh
+docker network rm traefik-public
 ```
-
-## Ambiente Desenvolvimento
-Para testes e desenvolvimento sem gerar reais certificados HTTPS:
-
-
-```bash
-cd dev
-docker-compose --env-file ../.env up -d
-```
-
-Dashboard acessível em http://localhost:8080
 
 ## Deploy em Produção (Docker Swarm)
 
@@ -82,4 +63,10 @@ Para deploy em prod usar:
 ```bash
 chmod +x scripts/deploy.sh 
 ./scripts/deploy.sh
+```
+
+Para remover o serviço use:
+
+```bash
+docker stack rm traefik
 ```

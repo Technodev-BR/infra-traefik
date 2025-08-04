@@ -8,9 +8,13 @@ services:
       - 443:443
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./configs/traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./configs/middlewares.yml:/etc/traefik/middlewares.yml:ro
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
       - ./secrets/acme.json:/letsencrypt/acme.json
+    environment:
+      - TRAEFIK_DOMAIN=${TRAEFIK_DOMAIN}
+      - TRAEFIK_EMAIL=${TRAEFIK_EMAIL}
+      - TRAEFIK_DASHBOARD_USER=${TRAEFIK_DASHBOARD_USER}
+      - TRAEFIK_DASHBOARD_PASS_HASH=${TRAEFIK_DASHBOARD_PASS_HASH}
     networks:
       - ${TRAEFIK_NETWORK}
     deploy:
@@ -25,8 +29,9 @@ services:
         - traefik.http.routers.traefik.service=api@internal
         - traefik.http.routers.traefik.tls.certresolver=letsencrypt
         - traefik.http.services.traefik.loadbalancer.server.port=8080
+        - traefik.http.middlewares.authtraefik.basicauth.users=${TRAEFIK_DASHBOARD_USER}:${TRAEFIK_DASHBOARD_PASS_HASH}
         - traefik.http.routers.traefik.middlewares=auth
 
 networks:
-  - traefik-public:
+  traefik-public:
       external: true

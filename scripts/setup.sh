@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+unset DOCKER_INSECURE_NO_IPTABLES_RAW
+
 # Caminhos
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR/.."

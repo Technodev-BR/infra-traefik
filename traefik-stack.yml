@@ -11,10 +11,10 @@ services:
       - ./traefik.yml:/etc/traefik/traefik.yml:ro
       - ./secrets/acme.json:/letsencrypt/acme.json
     environment:
-      - TRAEFIK_DOMAIN=${TRAEFIK_DOMAIN}
-      - TRAEFIK_EMAIL=${TRAEFIK_EMAIL}
-      - TRAEFIK_DASHBOARD_USER=${TRAEFIK_DASHBOARD_USER}
-      - TRAEFIK_DASHBOARD_PASS_HASH=${TRAEFIK_DASHBOARD_PASS_HASH}
+      - TRAEFIK_DOMAIN=network.devfalido.com
+      - TRAEFIK_EMAIL=flaviojunior1070@gmail.com
+      - TRAEFIK_DASHBOARD_USER=admin
+      - TRAEFIK_DASHBOARD_PASS_HASH=\$2b\$12\$hqPSl7WL0ldRiH08Gg3rHupQN/un2flJKeQ05tKYGwtqT8xuQPtBq
     networks:
       - traefik-public
     deploy:

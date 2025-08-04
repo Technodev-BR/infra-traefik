@@ -60,7 +60,7 @@ jobs:
             PREV_IMAGE="${{ steps.previous-image.outputs.previous_image }}"
             sed -i "s|image: .*|image: \$PREV_IMAGE|" /tmp/${{ env.TRAEFIK_STACK_FILE }}
             docker stack deploy --with-registry-auth -c /tmp/${{ env.TRAEFIK_STACK_FILE }} $STACK_NAME
-        EOF
+EOF
 
       - name: Send email notification on rollback
         if: failure()

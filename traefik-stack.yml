@@ -30,7 +30,7 @@ services:
         - traefik.http.routers.traefik.tls.certresolver=letsencrypt
         - traefik.http.services.traefik.loadbalancer.server.port=8080
         - traefik.http.middlewares.authtraefik.basicauth.users=${TRAEFIK_DASHBOARD_USER}:${TRAEFIK_DASHBOARD_PASS_HASH}
-        - traefik.http.routers.traefik.middlewares=auth
+        - traefik.http.routers.traefik.middlewares=authtraefik
 
 networks:
   traefik-public:

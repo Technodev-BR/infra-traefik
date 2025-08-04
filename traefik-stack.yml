@@ -11,7 +11,7 @@ services:
       - ./traefik.yml:/etc/traefik/traefik.yml:ro
       - ./secrets/acme.json:/letsencrypt/acme.json
     environment:
-      - TRAEFIK_EMAIL=${TRAEFIK_EMAIL} 
+      - TRAEFIK_IMAGE=${TRAEFIK_IMAGE} 
       - TRAEFIK_DOMAIN=${TRAEFIK_DOMAIN}
       - TRAEFIK_EMAIL=${TRAEFIK_EMAIL}
       - TRAEFIK_DASHBOARD_USER=${TRAEFIK_DASHBOARD_USER}

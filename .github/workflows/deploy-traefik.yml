@@ -1,4 +1,4 @@
-name: Deploy Traefik stack
+name: Deploy Traefik Stack
 
 on:
   push:
@@ -11,6 +11,7 @@ jobs:
     env:
       STACK_NAME: traefik
       TRAEFIK_STACK_FILE: traefik-stack.yml
+      NETWORK_NAME: traefik-public
 
     steps:
       - name: Checkout repo
@@ -24,34 +25,29 @@ jobs:
       - name: List SSH identities
         run: ssh-add -l || echo "No SSH identities loaded"
 
-      - name: Debug environment variables
+      - name: Copy traefik-stack.yml to server
         run: |
-          echo "STACK_NAME=$STACK_NAME"
-          echo "TRAEFIK_STACK_FILE=$TRAEFIK_STACK_FILE"
-          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
-          echo "SSH_AGENT_PID=$SSH_AGENT_PID"
-          # Não imprimir secrets para evitar vazamento
+          scp -o StrictHostKeyChecking=no ${{ env.TRAEFIK_STACK_FILE }} \
+            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/tmp/${{ env.TRAEFIK_STACK_FILE }}
 
       - name: Get current Traefik image tag
         id: previous-image
         run: |
           IMAGE=$(ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
-            "docker service inspect ${STACK_NAME}_traefik --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'") || true
+            "docker service inspect ${STACK_NAME}_traefik --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'" || echo "")
           echo "previous_image=$IMAGE" >> $GITHUB_OUTPUT
-        continue-on-error: true
 
-      - name: Copy traefik-stack.yml to server (verbose)
+      - name: Create network if not exists
         run: |
-          scp -vvv -o StrictHostKeyChecking=no ${{ env.TRAEFIK_STACK_FILE }} \
-            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/tmp/${{ env.TRAEFIK_STACK_FILE }}
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
+            "docker network ls | grep -w $NETWORK_NAME || docker network create --driver=overlay $NETWORK_NAME"
 
-      - name: Update or deploy Traefik stack (verbose)
+      - name: Deploy stack
         run: |
-          ssh -vvv -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
-            docker stack deploy --with-registry-auth -c /tmp/${{ env.TRAEFIK_STACK_FILE }} $STACK_NAME
-          "
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
+            "docker stack deploy --with-registry-auth -c /tmp/${TRAEFIK_STACK_FILE} $STACK_NAME"
 
-      - name: Wait for Traefik service to stabilize
+      - name: Wait for Traefik to stabilize
         run: sleep 30
 
       - name: Health check Traefik dashboard
@@ -70,8 +66,8 @@ jobs:
           echo "Rolling back to previous image: ${{ steps.previous-image.outputs.previous_image }}"
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash -s << EOF
             PREV_IMAGE="${{ steps.previous-image.outputs.previous_image }}"
-            sed -i "s|image: .*|image: \$PREV_IMAGE|" /tmp/${{ env.TRAEFIK_STACK_FILE }}
-            docker stack deploy --with-registry-auth -c /tmp/${{ env.TRAEFIK_STACK_FILE }} $STACK_NAME
+            sed -i "s|image: .*|image: \$PREV_IMAGE|" /tmp/${TRAEFIK_STACK_FILE}
+            docker stack deploy --with-registry-auth -c /tmp/${TRAEFIK_STACK_FILE} $STACK_NAME
           EOF
 
       - name: Send email notification on rollback
@@ -82,13 +78,13 @@ jobs:
           server_port: ${{ secrets.SMTP_PORT }}
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "[Rollback] Deploy Traefik falhou e foi revertido 🚨"
+          subject: "[Rollback] Deploy do Traefik falhou e foi revertido 🚨"
           to: ${{ secrets.EMAIL_TO_NOTIFY }}
           from: ${{ secrets.SMTP_USERNAME }}
           body: |
-            O deploy do Traefik falhou na verificação de saúde.
-            O serviço foi revertido.
+            ❌ O deploy do Traefik falhou na branch `main`.
+            🔁 O stack foi revertido para a imagem anterior.
 
-            Repositório: ${{ github.repository }}
-            Commit: ${{ github.sha }}
-            Autor: ${{ github.actor }}
+            🔖 Commit: ${{ github.sha }}
+            👤 Autor: ${{ github.actor }}
+            📦 Repositório: ${{ github.repository }}

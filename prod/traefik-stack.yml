@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   traefik:
-    image: traefik:v2.11
+    image: ${TRAEFIK_IMAGE}
     command:
       - --configFile=/etc/traefik/traefik.yml
     ports:
@@ -14,7 +14,7 @@ services:
       - ./../configs/middlewares.yml:/etc/traefik/middlewares.yml:ro
       - ./../secrets/acme.json:/letsencrypt/acme.json
     networks:
-      - traefik-public
+      - ${TRAEFIK_NETWORK}
     deploy:
       mode: global
       placement:
@@ -22,14 +22,13 @@ services:
           - node.role == manager
       labels:
         - traefik.enable=true
-        - traefik.http.routers.traefik.rule=Host(`network.devfalido.com`)
+        - traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DOMAIN}`)
         - traefik.http.routers.traefik.entrypoints=websecure
         - traefik.http.routers.traefik.service=api@internal
         - traefik.http.routers.traefik.tls.certresolver=letsencrypt
         - traefik.http.services.traefik.loadbalancer.server.port=8080
-        - traefik.http.middlewares.auth.basicauth.users=admin:$$2b$$12$$hqPSl7WL0ldRiH08Gg3rHupQN/un2flJKeQ05tKYGwtqT8xuQPtBq
         - traefik.http.routers.traefik.middlewares=auth
 
 networks:
-  traefik-public:
+  - traefik-public:
     external: true

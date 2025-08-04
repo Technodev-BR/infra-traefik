@@ -27,17 +27,41 @@ Infraestrutura do Traefik em Docker Swarm com HTTPS automático via Let's Encryp
 ! Copie o arquivo `.env.example` para `.env` e ajuste as variáveis conforme seu ambiente
 
 
-## Gerando a senha para o dashboard Traefik
-
-Para proteger o dashboard com autenticação básica, utilizamos um hash bcrypt para o usuário administrador.
-
-Para gerar o hash da sua senha, execute o comando:
-
 ## Setup inicial
 
+
+Antes de rodar o setup, certifique-se que o Docker Swarm está inicializado e seu nó atual é manager. Para isso, execute:
+
 ```bash
-chmod +x scripts/setup.sh
-./scripts/setup.sh
+docker swarm init
+```
+
+Para parar a execução do swarm execulte:
+
+```bash
+docker swarm leave --force
+```
+
+Ambiente dev:
+
+```bash
+chmod +x scripts/setup-dev.sh
+./scripts/setup-dev.sh
+```
+
+Ambiente prod:
+
+```bash
+chmod +x scripts/setup-prod.sh
+./scripts/setup-prod.sh
+```
+
+Caso ocorra um problema sobre a rede use o setup-down para limpar:
+
+
+```bash
+chmod +x scripts/setup-down.sh
+./scripts/setup-down.sh
 ```
 
 ## Ambiente Desenvolvimento
@@ -46,7 +70,7 @@ Para testes e desenvolvimento sem gerar reais certificados HTTPS:
 
 ```bash
 cd dev
-docker-compose up -d
+docker-compose --env-file ../.env up -d
 ```
 
 Dashboard acessível em http://localhost:8080

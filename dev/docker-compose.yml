@@ -1,22 +1,22 @@
-version: '3.8'
-
 services:
   traefik:
-    image: traefik:v2.11
+    image: ${TRAEFIK_IMAGE}
     container_name: traefik-dev
     command:
       - --configFile=/etc/traefik/traefik.yml
     ports:
-      - "80:80"
-      - "443:443"
-      - "8080:8080" # Dashboard aberto em dev
+      - 81:80
+      - 443:443
+      - 8081:8080 # Dashboard aberto em dev
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ../configs/traefik.yml:/etc/traefik/traefik.yml:ro
       - ../configs/middlewares.yml:/etc/traefik/middlewares.yml:ro
       - ../secrets/acme.json:/letsencrypt/acme.json
     networks:
-      - traefik-public
+      - ${TRAEFIK_NETWORK}
+    env_file:
+      - ../.env
 
 networks:
   traefik-public:

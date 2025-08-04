@@ -12,6 +12,7 @@ jobs:
       STACK_NAME: traefik
       TRAEFIK_STACK_FILE: traefik-stack.yml
       NETWORK_NAME: traefik-public
+      REMOTE_PATH: /docker/infra-traefik
 
     steps:
       - name: Checkout repo
@@ -27,9 +28,8 @@ jobs:
 
       - name: Copy traefik-stack.yml to server
         run: |
-          # Copia o arquivo traefik-stack.yml para /tmp/traefik.yml no servidor remoto
           scp -o StrictHostKeyChecking=no ${{ env.TRAEFIK_STACK_FILE }} \
-            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/tmp/traefik.yml
+            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/${{ env.TRAEFIK_STACK_FILE }}
 
       - name: Get current Traefik image tag
         id: previous-image
@@ -46,7 +46,7 @@ jobs:
       - name: Deploy stack
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
-            "docker stack deploy --with-registry-auth -c /tmp/traefik.yml $STACK_NAME"
+            "docker stack deploy --with-registry-auth -c $REMOTE_PATH/$TRAEFIK_STACK_FILE $STACK_NAME"
 
       - name: Wait for Traefik to stabilize
         run: sleep 30
@@ -54,7 +54,7 @@ jobs:
       - name: Health check Traefik dashboard
         id: healthcheck
         run: |
-          STATUS=$(curl -sk -o /dev/null -w "%{http_code}" https://$network.devfalido.com/dashboard/ || echo "000")
+          STATUS=$(curl -sk -o /dev/null -w "%{http_code}" https://${{ env.TRAEFIK_DOMAIN }}/dashboard/ || echo "000")
           echo "Status: $STATUS"
           if [ "$STATUS" != "200" ]; then
             echo "Health check failed!"
@@ -67,8 +67,8 @@ jobs:
           echo "Rolling back to previous image: ${{ steps.previous-image.outputs.previous_image }}"
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash -s << EOF
             PREV_IMAGE="${{ steps.previous-image.outputs.previous_image }}"
-            sed -i "s|image: .*|image: \$PREV_IMAGE|" /tmp/traefik.yml
-            docker stack deploy --with-registry-auth -c /tmp/traefik.yml $STACK_NAME
+            sed -i "s|image: .*|image: \$PREV_IMAGE|" $REMOTE_PATH/${TRAEFIK_STACK_FILE}
+            docker stack deploy --with-registry-auth -c $REMOTE_PATH/${TRAEFIK_STACK_FILE} $STACK_NAME
           EOF
 
       - name: Send email notification on rollback

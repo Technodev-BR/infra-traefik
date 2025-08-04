@@ -9,12 +9,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./secrets/acme.json:/letsencrypt/acme.json
-    environment:
-      - TRAEFIK_DOMAIN=network.devfalido.com
-      - TRAEFIK_EMAIL=flaviojunior1070@gmail.com
-      - TRAEFIK_DASHBOARD_USER=admin
-      - TRAEFIK_DASHBOARD_PASS_HASH=\$2b\$12\$hqPSl7WL0ldRiH08Gg3rHupQN/un2flJKeQ05tKYGwtqT8xuQPtBq
+      - ./secrets/acme.json:/letsencrypt/acme.jsonm
     networks:
       - traefik-public
     deploy:
@@ -24,12 +19,12 @@ services:
           - node.role == manager
       labels:
         - traefik.enable=true
-        - traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DOMAIN}`)
+        - traefik.http.routers.traefik.rule=Host(`network.devfalido.com`)
         - traefik.http.routers.traefik.entrypoints=websecure
         - traefik.http.routers.traefik.service=api@internal
         - traefik.http.routers.traefik.tls.certresolver=letsencrypt
         - traefik.http.services.traefik.loadbalancer.server.port=8080
-        - traefik.http.middlewares.authtraefik.basicauth.users=${TRAEFIK_DASHBOARD_USER}:${TRAEFIK_DASHBOARD_PASS_HASH}
+        - traefik.http.middlewares.authtraefik.basicauth.users=admin:$$2b$$12$$hqPSl7WL0ldRiH08Gg3rHupQN/un2flJKeQ05tKYGwtqT8xuQPtBq
         - traefik.http.routers.traefik.middlewares=authtraefik
 
 networks:

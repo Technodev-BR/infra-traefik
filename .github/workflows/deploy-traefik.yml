@@ -27,13 +27,14 @@ jobs:
           IMAGE=$(ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
             "docker service inspect ${STACK_NAME}_traefik --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'") || true
           echo "previous_image=$IMAGE" >> $GITHUB_OUTPUT
+        continue-on-error: true
 
       - name: Copy traefik-stack.yml to server
         run: |
           scp -o StrictHostKeyChecking=no ${{ env.TRAEFIK_STACK_FILE }} \
           ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/tmp/${{ env.TRAEFIK_STACK_FILE }}
 
-      - name: Deploy Traefik stack on server
+      - name: Update or deploy Traefik stack
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
             docker stack deploy --with-registry-auth -c /tmp/${{ env.TRAEFIK_STACK_FILE }} $STACK_NAME

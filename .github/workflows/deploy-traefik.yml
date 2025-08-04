@@ -27,8 +27,9 @@ jobs:
 
       - name: Copy traefik-stack.yml to server
         run: |
+          # Copia o arquivo traefik-stack.yml para /tmp/traefik.yml no servidor remoto
           scp -o StrictHostKeyChecking=no ${{ env.TRAEFIK_STACK_FILE }} \
-            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/tmp/${{ env.TRAEFIK_STACK_FILE }}
+            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/tmp/traefik.yml
 
       - name: Get current Traefik image tag
         id: previous-image
@@ -45,7 +46,7 @@ jobs:
       - name: Deploy stack
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
-            "docker stack deploy --with-registry-auth -c /tmp/${TRAEFIK_STACK_FILE} $STACK_NAME"
+            "docker stack deploy --with-registry-auth -c /tmp/traefik.yml $STACK_NAME"
 
       - name: Wait for Traefik to stabilize
         run: sleep 30
@@ -66,8 +67,8 @@ jobs:
           echo "Rolling back to previous image: ${{ steps.previous-image.outputs.previous_image }}"
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash -s << EOF
             PREV_IMAGE="${{ steps.previous-image.outputs.previous_image }}"
-            sed -i "s|image: .*|image: \$PREV_IMAGE|" /tmp/${TRAEFIK_STACK_FILE}
-            docker stack deploy --with-registry-auth -c /tmp/${TRAEFIK_STACK_FILE} $STACK_NAME
+            sed -i "s|image: .*|image: \$PREV_IMAGE|" /tmp/traefik.yml
+            docker stack deploy --with-registry-auth -c /tmp/traefik.yml $STACK_NAME
           EOF
 
       - name: Send email notification on rollback

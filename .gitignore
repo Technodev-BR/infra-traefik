@@ -1,0 +1,14 @@
+# Ignore secrets and generated files
+secrets/
+.env
+*.log
+*.pid
+*.env.local
+*.env.*.local
+
+# Ignore OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+node_modules/

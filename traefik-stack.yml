@@ -16,7 +16,7 @@ services:
       - TRAEFIK_DASHBOARD_USER=${TRAEFIK_DASHBOARD_USER}
       - TRAEFIK_DASHBOARD_PASS_HASH=${TRAEFIK_DASHBOARD_PASS_HASH}
     networks:
-      - ${TRAEFIK_NETWORK}
+      - traefik-public
     deploy:
       mode: global
       placement:

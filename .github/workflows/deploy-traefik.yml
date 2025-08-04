@@ -1,94 +1,18 @@
-name: Deploy Traefik stack
+name: Test SSH connection
 
-on:
-  push:
-    branches:
-      - main
+on: [push]
 
 jobs:
-  deploy:
+  test-ssh:
     runs-on: ubuntu-latest
-    env:
-      STACK_NAME: traefik
-      TRAEFIK_STACK_FILE: traefik-stack.yml
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.7.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: List SSH identities
-        run: ssh-add -l || echo "No SSH identities loaded"
-
-      - name: Debug environment variables
+      - name: Setup SSH key
         run: |
-          echo "STACK_NAME=$STACK_NAME"
-          echo "TRAEFIK_STACK_FILE=$TRAEFIK_STACK_FILE"
-          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
-          echo "SSH_AGENT_PID=$SSH_AGENT_PID"
-          # Não imprimir secrets para evitar vazamento
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 181.215.134.63 >> ~/.ssh/known_hosts
 
-      - name: Get current Traefik image tag
-        id: previous-image
-        run: |
-          IMAGE=$(ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
-            "docker service inspect ${STACK_NAME}_traefik --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'") || true
-          echo "previous_image=$IMAGE" >> $GITHUB_OUTPUT
-        continue-on-error: true
-
-      - name: Copy traefik-stack.yml to server (verbose)
-        run: |
-          scp -vvv -o StrictHostKeyChecking=no ${{ env.TRAEFIK_STACK_FILE }} \
-            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/tmp/${{ env.TRAEFIK_STACK_FILE }}
-
-      - name: Update or deploy Traefik stack (verbose)
-        run: |
-          ssh -vvv -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
-            docker stack deploy --with-registry-auth -c /tmp/${{ env.TRAEFIK_STACK_FILE }} $STACK_NAME
-          "
-
-      - name: Wait for Traefik service to stabilize
-        run: sleep 30
-
-      - name: Health check Traefik dashboard
-        id: healthcheck
-        run: |
-          STATUS=$(curl -sk -o /dev/null -w "%{http_code}" https://${{ secrets.TRAEFIK_DOMAIN }}/dashboard/ || echo "000")
-          echo "Status: $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "Health check failed!"
-            exit 1
-          fi
-
-      - name: Rollback on failure
-        if: failure()
-        run: |
-          echo "Rolling back to previous image: ${{ steps.previous-image.outputs.previous_image }}"
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash -s << EOF
-            PREV_IMAGE="${{ steps.previous-image.outputs.previous_image }}"
-            sed -i "s|image: .*|image: \$PREV_IMAGE|" /tmp/${{ env.TRAEFIK_STACK_FILE }}
-            docker stack deploy --with-registry-auth -c /tmp/${{ env.TRAEFIK_STACK_FILE }} $STACK_NAME
-          EOF
-
-      - name: Send email notification on rollback
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.SMTP_SERVER }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "[Rollback] Deploy Traefik falhou e foi revertido 🚨"
-          to: ${{ secrets.EMAIL_TO_NOTIFY }}
-          from: ${{ secrets.SMTP_USERNAME }}
-          body: |
-            O deploy do Traefik falhou na verificação de saúde.
-            O serviço foi revertido.
-
-            Repositório: ${{ github.repository }}
-            Commit: ${{ github.sha }}
-            Autor: ${{ github.actor }}
+      - name: Run SSH command
+        run: ssh -i ~/.ssh/id_ed25519 root@181.215.134.63 "echo Conectado com sucesso!"
